@@ -7,6 +7,13 @@
   "bin": {
     "bluesky-mcp-server": "dist/index.js"
   },
+  "files": ["dist/"],
+  "engines": {
+    "node": ">=18"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "dev": "tsx src/index.ts",
     "build": "tsc",

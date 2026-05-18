@@ -1,0 +1,81 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  packages: write
+  id-token: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          # Fine-grained PAT with "Contents: Read and write" permission.
+          # Add it as RELEASE_TOKEN in repo Settings → Secrets → Actions.
+          token: ${{ secrets.RELEASE_TOKEN }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Build
+        run: npm run build
+
+      - name: Install semantic-release
+        run: |
+          npm install --no-save \
+            semantic-release \
+            @semantic-release/commit-analyzer \
+            @semantic-release/release-notes-generator \
+            @semantic-release/npm \
+            @semantic-release/git \
+            @semantic-release/github
+
+      - name: Semantic Release
+        id: release
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          NEW_VERSION=$(npx semantic-release --dry-run --no-ci 2>/dev/null | grep "The next release version is" | sed 's/.*The next release version is //' || echo "")
+
+          if [ -n "$NEW_VERSION" ]; then
+            echo "new_release=true" >> $GITHUB_OUTPUT
+            echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+            npx semantic-release
+          else
+            echo "No release needed based on commit messages"
+            echo "new_release=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Release summary
+        if: steps.release.outputs.new_release == 'true'
+        run: |
+          echo "## 🎉 Release Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Released version: **${{ steps.release.outputs.new_version }}**" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Published to:" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ GitHub Releases" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ npm (npx bluesky-mcp-server)" >> $GITHUB_STEP_SUMMARY
