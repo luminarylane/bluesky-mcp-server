@@ -20,9 +20,10 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          # Fine-grained PAT with "Contents: Read and write" permission.
-          # Add it as RELEASE_TOKEN in repo Settings → Secrets → Actions.
-          token: ${{ secrets.RELEASE_TOKEN }}
+          # Falls back to GITHUB_TOKEN when RELEASE_TOKEN is not set.
+          # Set RELEASE_TOKEN (fine-grained PAT, Contents: read+write) only
+          # if main is branch-protected — GITHUB_TOKEN can't push to protected branches.
+          token: ${{ secrets.RELEASE_TOKEN || github.token }}
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
