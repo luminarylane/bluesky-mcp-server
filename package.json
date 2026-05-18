@@ -1,0 +1,27 @@
+{
+  "name": "bluesky-mcp-server",
+  "version": "1.0.65",
+  "description": "Standalone Bluesky MCP Server — SENSE + ACT tools for the AT Protocol",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "bluesky-mcp-server": "dist/index.js"
+  },
+  "scripts": {
+    "dev": "tsx src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@atproto/api": "^0.15.8",
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "zod": "^3.24.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0",
+    "vitest": "^4.0.18"
+  }
+}
