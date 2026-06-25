@@ -12,6 +12,7 @@ A Model Context Protocol (MCP) server that enables Claude Desktop (and other MCP
 ## ✨ Features
 
 ### ⚡ Built-in Reliability
+
 - **Session Caching** — Authenticated sessions are reused for 90 minutes to avoid login rate limits (30 logins/5min on Bluesky)
 - **Rate Limiting** — Token-bucket rate limiting across read, write, and session operation buckets
 - **Auto-retry** — Exponential backoff on HTTP 429 responses
@@ -59,6 +60,7 @@ BLUESKY_HANDLE=you.bsky.social BLUESKY_APP_PASSWORD=xxxx-xxxx-xxxx-xxxx npx blue
 **Claude Desktop Configuration for npx:**
 
 Add to your Claude Desktop config file:
+
 - macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
 - Windows: `%APPDATA%\Claude\claude_desktop_config.json`
 
@@ -152,28 +154,28 @@ Once configured, ask Claude to:
 
 ### SENSE Tools (Read)
 
-| Tool | Description | Key Parameters |
-|------|-------------|----------------|
-| `bsky_get_timeline` | Home timeline from followed accounts | `limit` (max 50), `cursor` |
-| `bsky_get_notifications` | Likes, reposts, follows, mentions, replies | `limit` (max 50), `cursor` |
-| `bsky_search_posts` | Search posts by keyword/phrase/hashtag | `query`, `sort` (top/latest), `limit` |
-| `bsky_get_post_thread` | Fetch a post and its full thread | `uri` (AT URI), `depth` (max 20) |
-| `bsky_get_profile` | Get a user's profile | `actor` (handle or DID) |
-| `bsky_get_followers` | List followers of an account | `actor`, `limit` (max 100) |
-| `bsky_search_users` | Find users by name or keyword | `query`, `limit` (max 50) |
-| `bsky_get_feed` | Posts from a custom feed generator | `feed` (AT URI), `limit` |
-| `bsky_get_media_specs` | Platform media format requirements | — |
+| Tool                     | Description                                | Key Parameters                        |
+| ------------------------ | ------------------------------------------ | ------------------------------------- |
+| `bsky_get_timeline`      | Home timeline from followed accounts       | `limit` (max 50), `cursor`            |
+| `bsky_get_notifications` | Likes, reposts, follows, mentions, replies | `limit` (max 50), `cursor`            |
+| `bsky_search_posts`      | Search posts by keyword/phrase/hashtag     | `query`, `sort` (top/latest), `limit` |
+| `bsky_get_post_thread`   | Fetch a post and its full thread           | `uri` (AT URI), `depth` (max 20)      |
+| `bsky_get_profile`       | Get a user's profile                       | `actor` (handle or DID)               |
+| `bsky_get_followers`     | List followers of an account               | `actor`, `limit` (max 100)            |
+| `bsky_search_users`      | Find users by name or keyword              | `query`, `limit` (max 50)             |
+| `bsky_get_feed`          | Posts from a custom feed generator         | `feed` (AT URI), `limit`              |
+| `bsky_get_media_specs`   | Platform media format requirements         | —                                     |
 
 ### ACT Tools (Write)
 
-| Tool | Description | Key Parameters |
-|------|-------------|----------------|
+| Tool               | Description                                      | Key Parameters                              |
+| ------------------ | ------------------------------------------------ | ------------------------------------------- |
 | `bsky_create_post` | Create a post (text, link card, image, or video) | `text`, `linkUrl` / `imageUrl` / `videoUrl` |
-| `bsky_reply` | Reply to a post | `text`, `parentUri`, `parentCid` |
-| `bsky_like` | Like a post | `uri`, `cid` |
-| `bsky_repost` | Repost a post | `uri`, `cid` |
-| `bsky_follow` | Follow a user | `did` |
-| `bsky_delete_post` | Delete a post | `uri` |
+| `bsky_reply`       | Reply to a post                                  | `text`, `parentUri`, `parentCid`            |
+| `bsky_like`        | Like a post                                      | `uri`, `cid`                                |
+| `bsky_repost`      | Repost a post                                    | `uri`, `cid`                                |
+| `bsky_follow`      | Follow a user                                    | `did`                                       |
+| `bsky_delete_post` | Delete a post                                    | `uri`                                       |
 
 > All tools accept optional `handle` and `appPassword` arguments to override the environment-variable credentials.
 
@@ -181,11 +183,11 @@ Once configured, ask Claude to:
 
 `bsky_create_post` supports three embed types (mutually exclusive):
 
-| Type | Parameter | Accepted Formats | Max Size |
-|------|-----------|-----------------|----------|
-| Link preview card | `linkUrl` | Any URL | — |
-| Image | `imageUrl` | JPEG, PNG (`https://` only) | 1 MB |
-| Video | `videoUrl` | MP4 (`https://` only) | 50 MB, 60s |
+| Type              | Parameter  | Accepted Formats            | Max Size   |
+| ----------------- | ---------- | --------------------------- | ---------- |
+| Link preview card | `linkUrl`  | Any URL                     | —          |
+| Image             | `imageUrl` | JPEG, PNG (`https://` only) | 1 MB       |
+| Video             | `videoUrl` | MP4 (`https://` only)       | 50 MB, 60s |
 
 Link preview cards automatically fetch `og:title`, `og:description`, and `og:image` from the target URL.
 
@@ -194,39 +196,51 @@ Link preview cards automatically fetch `og:title`, `og:description`, and `og:ima
 ### Common Errors
 
 #### Missing credentials
+
 ```
 Missing credentials — Provide handle + appPassword as arguments, or set BLUESKY_HANDLE and BLUESKY_APP_PASSWORD env vars.
 ```
+
 **Solution:** Set the env vars in your Claude Desktop config, or pass `handle` and `appPassword` directly in the tool call.
 
 #### Auth failed
+
 ```
 Auth failed — Bluesky login failed: Invalid identifier or password
 ```
+
 **Solution:** Generate a fresh App Password at [bsky.app/settings/app-passwords](https://bsky.app/settings/app-passwords). App passwords are separate from your account password.
 
 #### Rate limited
+
 ```
 Rate limited — Bluesky API rate limit reached (write bucket). Wait 45s then retry.
 ```
+
 **Solution:** The server includes built-in rate limiting. Wait the indicated number of seconds and retry the same tool call — the `retryAfterSeconds` field tells you exactly how long.
 
 #### Post too long
+
 ```
 400 Bad Request — POST_TOO_LONG: Text exceeds 300 graphemes. Shorten the text and retry.
 ```
+
 **Solution:** Bluesky's limit is 300 graphemes (not bytes). Shorten the post text.
 
 #### Image or video URL rejected
+
 ```
 URL rejected (not https:// or blocked address)
 ```
+
 **Solution:** `imageUrl` and `videoUrl` must use `https://` and point to a public internet address. Local or private network URLs are blocked.
 
 #### Post not found (404)
+
 ```
 POST_NOT_FOUND: This post may have been deleted. Skip it and move on.
 ```
+
 **Solution:** The post was deleted after you retrieved its URI. Skip this operation.
 
 ### Getting AT URIs
