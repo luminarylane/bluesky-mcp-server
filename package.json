@@ -1,34 +1,42 @@
 {
-  "name": "bluesky-mcp-server",
-  "version": "1.0.65",
+  "name": "@luminarylane/bluesky-mcp-server",
+  "version": "1.0.66",
   "description": "Standalone Bluesky MCP Server — SENSE + ACT tools for the AT Protocol",
   "type": "module",
   "main": "dist/index.js",
   "bin": {
-    "bluesky-mcp-server": "dist/index.js"
-  },
-  "files": [
-    "dist/"
-  ],
-  "engines": {
-    "node": ">=18"
-  },
-  "publishConfig": {
-    "access": "public"
+    "luminarylane-bluesky-mcp": "dist/index.js"
   },
   "scripts": {
     "dev": "tsx src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
-    "test": "vitest run"
+    "test": "vitest run",
+    "check": "npm test && npm run build"
   },
+  "files": ["dist", "README.md", "LICENSE", "SECURITY.md"],
+  "engines": { "node": ">=22.14.0" },
+  "repository": { "type": "git", "url": "git+https://github.com/luminarylane/bluesky-mcp-server.git" },
+  "bugs": { "url": "https://github.com/luminarylane/bluesky-mcp-server/issues" },
+  "homepage": "https://github.com/luminarylane/bluesky-mcp-server#readme",
+  "license": "MIT",
+  "publishConfig": { "access": "public" },
   "dependencies": {
-    "@atproto/api": "^0.20.21",
+    "@atproto/api": "^0.15.8",
     "@modelcontextprotocol/sdk": "^1.0.0",
-    "zod": "^4.4.3"
+    "langfuse": "^3.38.20",
+    "pino": "^10.3.1",
+    "zod": "^4.1.5"
+  },
+  "overrides": {
+    "router": {
+      "path-to-regexp": ">=8.4.0"
+    },
+    "fast-uri": "^4.1.2",
+    "ip-address": "^10.4.0"
   },
   "devDependencies": {
-    "@types/node": "^26.0.1",
+    "@types/node": "^22.0.0",
     "tsx": "^4.19.0",
     "typescript": "^5.7.0",
     "vitest": "^4.0.18"
