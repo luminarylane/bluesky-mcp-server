@@ -49,6 +49,8 @@ A Model Context Protocol (MCP) server that enables Claude Desktop (and other MCP
 
 ### Installation
 
+Published package: [@luminarylane/bluesky-mcp-server on npm](https://www.npmjs.com/package/@luminarylane/bluesky-mcp-server)
+
 #### Option 1: npx (Zero Install) ⚡
 
 Run directly without installing anything:
