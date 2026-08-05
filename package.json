@@ -1,6 +1,6 @@
 {
   "name": "@luminarylane/bluesky-mcp-server",
-  "version": "1.0.67",
+  "version": "1.0.68",
   "description": "Standalone Bluesky MCP Server — SENSE + ACT tools for the AT Protocol",
   "type": "module",
   "main": "dist/index.js",
