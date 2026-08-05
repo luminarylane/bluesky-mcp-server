@@ -2,9 +2,9 @@
 
 [![CI](https://github.com/luminarylane/bluesky-mcp-server/actions/workflows/ci.yml/badge.svg)](https://github.com/luminarylane/bluesky-mcp-server/actions/workflows/ci.yml)
 [![MCP](https://img.shields.io/badge/MCP-1.0-blue)](https://modelcontextprotocol.io)
-[![npm](https://img.shields.io/npm/v/bluesky-mcp-server)](https://www.npmjs.com/package/bluesky-mcp-server)
+[![npm](https://img.shields.io/npm/v/@luminarylane/bluesky-mcp-server)](https://www.npmjs.com/package/@luminarylane/bluesky-mcp-server)
 [![GitHub Release](https://img.shields.io/github/v/release/luminarylane/bluesky-mcp-server)](https://github.com/luminarylane/bluesky-mcp-server/releases)
-[![Node.js](https://img.shields.io/badge/Node.js-18%2B-green)](https://nodejs.org)
+[![Node.js](https://img.shields.io/badge/Node.js-22.14%2B-green)](https://nodejs.org)
 [![License](https://img.shields.io/badge/License-MIT-yellow)](LICENSE)
 
 A Model Context Protocol (MCP) server that enables Claude Desktop (and other MCP clients) to read and post on [Bluesky](https://bsky.app) via the AT Protocol.
@@ -43,7 +43,7 @@ A Model Context Protocol (MCP) server that enables Claude Desktop (and other MCP
 
 ### Prerequisites
 
-- Node.js 18 or higher
+- Node.js 22.14 or higher
 - A Bluesky account with an **App Password** — [generate one at bsky.app/settings/app-passwords](https://bsky.app/settings/app-passwords)
 - Claude Desktop (or any MCP-compatible client)
 
@@ -54,7 +54,7 @@ A Model Context Protocol (MCP) server that enables Claude Desktop (and other MCP
 Run directly without installing anything:
 
 ```bash
-BLUESKY_HANDLE=you.bsky.social BLUESKY_APP_PASSWORD=xxxx-xxxx-xxxx-xxxx npx bluesky-mcp-server
+BLUESKY_HANDLE=you.bsky.social BLUESKY_APP_PASSWORD=xxxx-xxxx-xxxx-xxxx npx --yes @luminarylane/bluesky-mcp-server
 ```
 
 **Claude Desktop Configuration for npx:**
@@ -69,7 +69,7 @@ Add to your Claude Desktop config file:
   "mcpServers": {
     "bluesky": {
       "command": "npx",
-      "args": ["bluesky-mcp-server"],
+      "args": ["--yes", "@luminarylane/bluesky-mcp-server"],
       "env": {
         "BLUESKY_HANDLE": "you.bsky.social",
         "BLUESKY_APP_PASSWORD": "xxxx-xxxx-xxxx-xxxx"
@@ -82,7 +82,7 @@ Add to your Claude Desktop config file:
 #### Option 2: Install globally from npm
 
 ```bash
-npm install -g bluesky-mcp-server
+npm install -g @luminarylane/bluesky-mcp-server
 ```
 
 **Claude Desktop Configuration:**
@@ -91,7 +91,7 @@ npm install -g bluesky-mcp-server
 {
   "mcpServers": {
     "bluesky": {
-      "command": "bluesky-mcp-server",
+      "command": "luminarylane-bluesky-mcp",
       "env": {
         "BLUESKY_HANDLE": "you.bsky.social",
         "BLUESKY_APP_PASSWORD": "xxxx-xxxx-xxxx-xxxx"

@@ -20,6 +20,12 @@ import {
   RichText,
 } from "@atproto/api";
 import { z } from "zod";
+import logger from "./lib/logger.js";
+import {
+  getSessionTrace,
+  flushLangfuse,
+  shutdownLangfuse,
+} from "./lib/langfuse.js";
 import { createAgent } from "./client.js";
 import { textResult, errorResult, senseResult } from "./response.js";
 import {
@@ -126,8 +132,16 @@ function safeHandler<T>(
   ReturnType<typeof textResult | typeof senseResult | typeof errorResult>
 > {
   return async (args: T) => {
+    const trace = getSessionTrace();
+    const span = trace?.span({
+      name: `tool:${toolName}`,
+      input: args as Record<string, unknown>,
+    });
+
     try {
-      return await handler(args);
+      const result = await handler(args);
+      span?.update({ output: result });
+      return result;
     } catch (e) {
       try {
         const msg = e instanceof Error ? e.message : String(e);
@@ -137,10 +151,10 @@ function safeHandler<T>(
             ? (e as { status: number }).status
             : undefined;
         const action = suggestAction(toolName, statusCode, detail, msg);
-        console.error(
+        logger.error(
           `[${toolName}] Error: ${msg}${detail ? ` — ${detail}` : ""}`,
         );
-        return errorResult(
+        const result = errorResult(
           "API error",
           `${toolName} failed: ${detail || msg}`,
           {
@@ -149,9 +163,15 @@ function safeHandler<T>(
             ...(action && { action }),
           },
         );
+        span?.update({
+          output: { error: detail || msg, statusCode },
+          level: "ERROR",
+        });
+        return result;
       } catch {
         const fallback = e instanceof Error ? e.message : "Unknown error";
-        console.error(`[${toolName}] Error (fallback): ${fallback}`);
+        logger.error(`[${toolName}] Error (fallback): ${fallback}`);
+        span?.update({ output: { error: fallback }, level: "ERROR" });
         return {
           isError: true as const,
           content: [
@@ -165,6 +185,8 @@ function safeHandler<T>(
           ],
         };
       }
+    } finally {
+      span?.end();
     }
   };
 }
@@ -276,7 +298,7 @@ interface OgTags {
 
 async function fetchOgTags(url: string): Promise<OgTags> {
   if (!isAllowedUrl(url)) {
-    console.error(
+    logger.error(
       `[fetchOgTags] URL rejected (not http/https or malformed): ${url}`,
     );
     return {};
@@ -287,7 +309,7 @@ async function fetchOgTags(url: string): Promise<OgTags> {
       headers: { "User-Agent": "Bluesky-MCP-Server/1.0 (link-preview)" },
     });
     if (!res.ok) {
-      console.error(`[fetchOgTags] HTTP ${res.status} fetching ${url}`);
+      logger.error(`[fetchOgTags] HTTP ${res.status} fetching ${url}`);
       return {};
     }
     // Read approximately the first 50K characters to avoid downloading huge pages
@@ -302,7 +324,7 @@ async function fetchOgTags(url: string): Promise<OgTags> {
     }
     html += decoder.decode(); // flush remaining bytes from incomplete multibyte sequences
     reader.cancel().catch((e) => {
-      console.error(
+      logger.error(
         `[fetchOgTags] Stream cancel failed: ${e instanceof Error ? e.message : String(e)}`,
       );
     });
@@ -342,7 +364,7 @@ async function fetchOgTags(url: string): Promise<OgTags> {
       imageUrl,
     };
   } catch (e) {
-    console.error(
+    logger.error(
       `[fetchOgTags] Failed for ${url}: ${e instanceof Error ? e.message : String(e)}`,
     );
     return {};
@@ -354,7 +376,7 @@ async function fetchAndUploadThumb(
   agent: Awaited<ReturnType<typeof createAgent>>,
 ): Promise<unknown> {
   if (!isAllowedUrl(imageUrl)) {
-    console.error(
+    logger.error(
       `[fetchAndUploadThumb] URL rejected (not http/https or malformed): ${imageUrl}`,
     );
     return undefined;
@@ -364,7 +386,7 @@ async function fetchAndUploadThumb(
       signal: AbortSignal.timeout(10_000),
     });
     if (!res.ok) {
-      console.error(
+      logger.error(
         `[fetchAndUploadThumb] HTTP ${res.status} fetching ${imageUrl}`,
       );
       return undefined;
@@ -372,7 +394,7 @@ async function fetchAndUploadThumb(
 
     const contentLength = res.headers.get("content-length");
     if (contentLength && parseInt(contentLength, 10) > BLUESKY_BLOB_MAX_BYTES) {
-      console.error(
+      logger.error(
         `[fetchAndUploadThumb] Image too large (${contentLength} bytes, max ${BLUESKY_BLOB_MAX_BYTES}): ${imageUrl}`,
       );
       return undefined;
@@ -380,7 +402,7 @@ async function fetchAndUploadThumb(
 
     const buffer = await res.arrayBuffer();
     if (buffer.byteLength > BLUESKY_BLOB_MAX_BYTES) {
-      console.error(
+      logger.error(
         `[fetchAndUploadThumb] Image too large after download (${buffer.byteLength} bytes, max ${BLUESKY_BLOB_MAX_BYTES}): ${imageUrl}`,
       );
       return undefined;
@@ -391,7 +413,7 @@ async function fetchAndUploadThumb(
     const uploadRes = await agent.uploadBlob(data, { encoding });
     return uploadRes.data.blob;
   } catch (e) {
-    console.error(
+    logger.error(
       `[fetchAndUploadThumb] Failed for ${imageUrl}: ${e instanceof Error ? e.message : String(e)}`,
     );
     return undefined;
@@ -440,7 +462,7 @@ function isAllowedMediaUrl(url: string): boolean {
     }
     return true;
   } catch (e) {
-    console.error(
+    logger.error(
       `[isAllowedMediaUrl] Failed to parse URL: ${url} — ${e instanceof Error ? e.message : String(e)}`,
     );
     return false;
@@ -566,7 +588,7 @@ async function downloadAndUploadVideo(
   // response body to get the jobId and proceed to polling for the blob.
   if (!uploadRes.ok && uploadRes.status !== 409) {
     const errText = await uploadRes.text().catch((textErr) => {
-      console.error(
+      logger.error(
         `[downloadAndUploadVideo] Failed to read error body: ${textErr instanceof Error ? textErr.message : String(textErr)}`,
       );
       return "(could not read response body)";
@@ -612,7 +634,7 @@ async function downloadAndUploadVideo(
       consecutiveErrors = 0;
     } catch (pollErr) {
       consecutiveErrors++;
-      console.error(
+      logger.error(
         `[downloadAndUploadVideo] Poll error ${consecutiveErrors}/${MAX_POLL_ERRORS} for jobId ${jobId}: ${pollErr instanceof Error ? pollErr.message : String(pollErr)}`,
       );
       if (consecutiveErrors >= MAX_POLL_ERRORS) {
@@ -1202,6 +1224,52 @@ server.registerTool(
 // ACT Tools (write)
 // =====================
 
+/**
+ * Post an optional first comment as a self-reply to a just-created post (#1995).
+ * Returns { id } (the reply's AT URI) on success, { error } on failure, {} if no
+ * firstComment given. Enforces the 300-grapheme cap and mirrors the LinkedIn
+ * partial-success contract (3-5s delay). The caller composes textResult/
+ * errorResult so a comment failure surfaces explicitly — never a clean success.
+ */
+export async function postBskyFirstComment(
+  agent: Awaited<ReturnType<typeof createAgent>>,
+  parent: { uri: string; cid: string },
+  firstComment: string | undefined,
+): Promise<{ id?: string; error?: string }> {
+  const rawFc = firstComment?.trim();
+  if (!rawFc) return {};
+  // Re-build RichText only when we actually truncate — the common (in-cap)
+  // path reuses the first instance.
+  const fcRt = new RichText({ text: rawFc });
+  const fcRtFinal =
+    fcRt.graphemeLength > 300
+      ? new RichText({ text: [...rawFc].slice(0, 300).join("") })
+      : fcRt;
+  await fcRtFinal.detectFacets(agent);
+
+  const delayMs = 3000 + Math.random() * 2000;
+  await new Promise((resolve) => setTimeout(resolve, delayMs));
+
+  try {
+    const replyResp = await withRetry(() =>
+      agent.post({
+        text: fcRtFinal.text,
+        facets: fcRtFinal.facets,
+        reply: { root: parent, parent },
+      }),
+    );
+    // AT URI — named `id` for cross-server uniformity (LinkedIn/FB/IG/X).
+    return { id: replyResp.uri };
+  } catch (commentError) {
+    const errMsg =
+      commentError instanceof Error
+        ? commentError.message
+        : String(commentError);
+    logger.error(`[bsky_create_post] First comment failed: ${errMsg}`);
+    return { error: errMsg };
+  }
+}
+
 server.registerTool(
   "bsky_create_post",
   {
@@ -1237,6 +1305,12 @@ server.registerTool(
         .describe(
           "URL of a video to embed in the post (MP4 only, max 50MB). Must be https://. Mutually exclusive with linkUrl and imageUrl.",
         ),
+      firstComment: z
+        .string()
+        .optional()
+        .describe(
+          "Optional self-reply posted a few seconds after the post (link, CTA, or supporting note). Max 300 graphemes. Note: Bluesky does not suppress links in first comments, so value is lower than on LinkedIn, but supported for consistency.",
+        ),
     },
   },
   safeHandler("bsky_create_post", async (args) => {
@@ -1261,6 +1335,34 @@ server.registerTool(
     if (!result.ok) return result.error;
     const { agent } = result;
 
+    // Compose the create-post result with an optional first comment. Delegates
+    // the post-then-comment hop to postBskyFirstComment and surfaces a partial
+    // failure explicitly when the post is live but the comment failed (#1931).
+    const withFirstComment = async (
+      postUri: string,
+      postCid: string,
+      basePayload: Record<string, unknown>,
+    ) => {
+      const fc = await postBskyFirstComment(
+        agent,
+        { uri: postUri, cid: postCid },
+        args.firstComment,
+      );
+      if (fc.error) {
+        return errorResult(
+          "Partial failure",
+          `Post created (${postUri}) but first comment failed: ${fc.error}. Use bsky_reply to retry.`,
+          { uri: postUri, cid: postCid, ...basePayload },
+        );
+      }
+      if (!fc.id) return textResult(basePayload);
+      return textResult({
+        ...basePayload,
+        firstCommentId: fc.id,
+        message: `${basePayload.message} with first comment`,
+      });
+    };
+
     // If videoUrl: download+upload video in parallel with facet detection
     if (args.videoUrl) {
       const [, videoBlob] = await Promise.all([
@@ -1280,7 +1382,7 @@ server.registerTool(
         }),
       );
 
-      return textResult({
+      return withFirstComment(response.uri, response.cid, {
         uri: response.uri,
         cid: response.cid,
         message: "Post created successfully with video",
@@ -1311,7 +1413,7 @@ server.registerTool(
         }),
       );
 
-      return textResult({
+      return withFirstComment(response.uri, response.cid, {
         uri: response.uri,
         cid: response.cid,
         message: "Post created successfully with image",
@@ -1333,7 +1435,7 @@ server.registerTool(
       }),
     );
 
-    return textResult({
+    return withFirstComment(response.uri, response.cid, {
       uri: response.uri,
       cid: response.cid,
       message: "Post created successfully",
@@ -1509,10 +1611,12 @@ server.registerTool(
 async function main() {
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.error("Bluesky MCP Server running on stdio");
+  logger.error("Bluesky MCP Server running on stdio");
 }
 
-main().catch((e) => {
-  console.error("Fatal:", e);
+main().catch(async (e) => {
+  logger.error({ err: e }, "Fatal");
+  await flushLangfuse();
+  await shutdownLangfuse();
   process.exit(1);
 });
