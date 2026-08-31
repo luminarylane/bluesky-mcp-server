@@ -40,7 +40,7 @@
     "access": "public"
   },
   "dependencies": {
-    "@atproto/api": "^0.15.8",
+    "@atproto/api": "^0.20.42",
     "@modelcontextprotocol/sdk": "^1.0.0",
     "langfuse": "^3.38.20",
     "pino": "^10.3.1",
